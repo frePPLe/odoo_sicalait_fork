@@ -1266,7 +1266,7 @@ class exporter(object):
                 and tmpl["x_studio_typologie"][0] in typologie
             ):
                 yield '<stringproperty name="typologie" value=%s/>' % (
-                    quoteattr(typologie[tmpl["x_studio_typologie"][0]])
+                    quoteattr(typologie[tmpl["x_studio_typologie"][0]]),
                 )
 
             # Export suppliers for the item, if the item is allowed to be purchased
