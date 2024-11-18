@@ -1073,6 +1073,19 @@ class exporter(object):
         for k, v in self.routes.items():
             if v["name"] == "Replenish on Order (MTO)":
                 self.route_mto = k
+
+        typologie = {}
+
+        for i in self.generator.getData(
+            "x_typologie",
+            search=[],
+            fields=[
+                "id",
+                "display_name",
+            ],
+        ):
+            typologie[i["id"]] = i["display_name"]
+
         for i in self.generator.getData(
             "product.template",
             search=[("type", "not in", ("service", "consu"))],
@@ -1085,6 +1098,7 @@ class exporter(object):
                 "categ_id",
                 "product_variant_ids",
                 "route_ids",
+                "x_studio_typologie",
             ]
             + (
                 [
@@ -1245,6 +1259,16 @@ class exporter(object):
                     else ""
                 ),
             )
+
+            # x_studio_typologie is a many to many field, we only take the first one.
+            if (
+                tmpl["x_studio_typologie"]
+                and tmpl["x_studio_typologie"][0] in typologie
+            ):
+                yield '<stringproperty name="typologie" value=%s/>' % (
+                    quoteattr(typologie[tmpl["x_studio_typologie"][0]])
+                )
+
             # Export suppliers for the item, if the item is allowed to be purchased
             if tmpl["purchase_ok"]:
                 suppliers = {}
