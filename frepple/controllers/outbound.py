@@ -304,8 +304,6 @@ class exporter(object):
             yield from self.export_purchaseorders()
             logger.debug("Exporting manufacturing orders.")
             yield from self.export_manufacturingorders()
-            logger.debug("Exporting reordering rules.")
-            yield from self.export_orderpoints()
 
             if self.has_expiry:
                 logger.debug("Exporting stock orders.")
@@ -1099,6 +1097,7 @@ class exporter(object):
                 "product_variant_ids",
                 "route_ids",
                 "x_studio_typologie",
+                "x_studio_cycle_de_vie",
             ]
             + (
                 [
@@ -1267,6 +1266,12 @@ class exporter(object):
             ):
                 yield '<stringproperty name="typologie" value=%s/>' % (
                     quoteattr(typologie[tmpl["x_studio_typologie"][0]]),
+                )
+
+            # x_studio_cycle_de_vie is a selection
+            if tmpl("x_studio_cycle_de_vie"):
+                yield '<stringproperty name="cycle_de_vie" value=%s/>' % (
+                    quoteattr(tmpl["x_studio_cycle_de_vie"]),
                 )
 
             # Export suppliers for the item, if the item is allowed to be purchased
@@ -2805,115 +2810,6 @@ class exporter(object):
 
                     yield "</operationplan>\n"
         yield "</operationplans>\n"
-
-    def export_orderpoints(self):
-        """
-        Defining order points for frePPLe, based on the stock.warehouse.orderpoint
-        model.
-
-        Mapping:
-        stock.warehouse.orderpoint.product.name ' @ ' stock.warehouse.orderpoint.location_id.name -> buffer.name
-        stock.warehouse.orderpoint.location_id.name -> buffer.location
-        stock.warehouse.orderpoint.product.name -> buffer.item
-        convert stock.warehouse.orderpoint.product_min_qty -> buffer.mininventory
-        convert stock.warehouse.orderpoint.product_max_qty -> buffer.maxinventory
-        convert stock.warehouse.orderpoint.qty_multiple -> buffer->size_multiple
-        """
-        first = True
-        # Keeping with the original reorderpoint mapping now
-        # try:
-        #     has_buffer_max = self.version[0] >= 9
-        # except Exception:
-        #     has_buffer_max = False
-        has_buffer_max = False
-
-        if has_buffer_max:
-            # frepple >= 9.0 has native support for buffers with a min and max level
-            for i in self.generator.getData(
-                "stock.warehouse.orderpoint",
-                fields=[
-                    "warehouse_id",
-                    "product_id",
-                    "product_min_qty",
-                    "product_max_qty",
-                    "product_uom",
-                    "qty_multiple",
-                ],
-            ):
-                if first:
-                    yield "<!-- order points -->\n"
-                    yield "<buffers>\n"
-                    first = False
-                item = self.product_product.get(
-                    i["product_id"] and i["product_id"][0] or 0, None
-                )
-                if not item:
-                    continue
-                uom_factor = self.convert_qty_uom(
-                    1.0,
-                    i["product_uom"][0],
-                    self.product_product[i["product_id"][0]]["template"],
-                )
-                yield '<buffer name=%s minimum="%f" maximum="%f"><item name=%s/><location name=%s/></buffer>\n' % (
-                    quoteattr("%s @ %s" % (item["name"], i["warehouse_id"][1])),
-                    ((i["product_min_qty"] or 0) * uom_factor),
-                    ((i["product_max_qty"] or 0) * uom_factor),
-                    quoteattr(item["name"]),
-                    quoteattr(i["warehouse_id"][1]),
-                )
-            if not first:
-                yield "</buffers>\n"
-        else:
-            for i in self.generator.getData(
-                "stock.warehouse.orderpoint",
-                fields=[
-                    "warehouse_id",
-                    "product_id",
-                    "product_min_qty",
-                    "product_max_qty",
-                    "product_uom",
-                    "qty_multiple",
-                ],
-            ):
-                if first:
-                    yield "<!-- order points -->\n"
-                    yield "<calendars>\n"
-                    first = False
-                item = self.product_product.get(
-                    i["product_id"] and i["product_id"][0] or 0, None
-                )
-                if not item:
-                    continue
-                uom_factor = self.convert_qty_uom(
-                    1.0,
-                    i["product_uom"][0],
-                    self.product_product[i["product_id"][0]]["template"],
-                )
-                name = "%s @ %s" % (item["name"], i["warehouse_id"][1])
-                if i["product_min_qty"]:
-                    yield """
-                    <calendar name=%s default="0"><buckets>
-                    <bucket start="%s" end="2030-12-31T00:00:00" value="%s" days="127" priority="998" starttime="PT0M" endtime="PT1440M"/>
-                    </buckets>
-                    </calendar>\n
-                    """ % (
-                        (quoteattr("SS for %s" % (name,))),
-                        self.currentdate.strftime("%Y-%m-%dT%H:%M:%S"),
-                        (i["product_min_qty"] * uom_factor),
-                    )
-                if i["product_max_qty"] - i["product_min_qty"] > 0:
-                    yield """
-                    <calendar name=%s default="0"><buckets>
-                    <bucket start="%s" end="2030-12-31T00:00:00" value="%s" days="127" priority="998" starttime="PT0M" endtime="PT1440M"/>
-                    </buckets>
-                    </calendar>\n
-                    """ % (
-                        (quoteattr("ROQ for %s" % (name,))),
-                        self.currentdate.strftime("%Y-%m-%dT%H:%M:%S"),
-                        ((i["product_max_qty"] - i["product_min_qty"]) * uom_factor),
-                    )
-            if not first:
-                yield "</calendars>\n"
 
     # export_stockorders will be called instead of export_onhand
     # when expiration dates is enabled in Odoo
