@@ -1075,7 +1075,7 @@ class exporter(object):
         typologie = {}
 
         for i in self.generator.getData(
-            "x_typologie",
+            "product.typology",
             search=[],
             fields=[
                 "id",
@@ -1096,7 +1096,7 @@ class exporter(object):
                 "categ_id",
                 "product_variant_ids",
                 "route_ids",
-                "x_studio_typologie",
+                "product_typology_ids",
                 "x_studio_cycle_de_vie",
             ]
             + (
@@ -1261,11 +1261,11 @@ class exporter(object):
 
             # x_studio_typologie is a many to many field, we only take the first one.
             if (
-                tmpl["x_studio_typologie"]
-                and tmpl["x_studio_typologie"][0] in typologie
+                tmpl["product_typology_ids"]
+                and tmpl["product_typology_ids"][0] in typologie
             ):
                 yield '<stringproperty name="typologie" value=%s/>' % (
-                    quoteattr(typologie[tmpl["x_studio_typologie"][0]]),
+                    quoteattr(typologie[tmpl["product_typology_ids"][0]]),
                 )
 
             # x_studio_cycle_de_vie is a selection
