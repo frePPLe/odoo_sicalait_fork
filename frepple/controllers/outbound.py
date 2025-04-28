@@ -822,9 +822,18 @@ class exporter(object):
         for loc_object in self.generator.getData(
             "stock.location",
             ids=loc_ids,
-            fields=["warehouse_id"],
+            fields=["warehouse_id", "name"],
         ):
-            if (
+            if loc_object["name"] == "Appro":
+                # We need to create a dummy warehouse for the "transitaire"
+                yield '<location name=%s subcategory="%s"></location>\n' % (
+                    quoteattr(i["name"]),
+                    i["id"],
+                )
+                self.warehouses[i["id"]] = i["name"]
+                self.map_locations[loc_object["id"]] = i["name"]
+
+            elif (
                 loc_object.get("warehouse_id", False)
                 and loc_object["warehouse_id"][0] in self.warehouses
             ):
