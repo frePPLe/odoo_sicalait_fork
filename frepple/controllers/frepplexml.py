@@ -25,11 +25,17 @@
 import base64
 import hashlib
 import hmac
+import importlib.util
+
 import json
 import logging
 import odoo
 import os
 from pathlib import Path
+import requests
+
+import sys
+import tempfile
 import time
 import traceback
 from tempfile import NamedTemporaryFile
@@ -38,8 +44,7 @@ from werkzeug.wrappers import Response
 
 
 from odoo import http
-from odoo.addons.frepple.controllers.outbound import exporter, Odoo_generator
-from odoo.addons.frepple.controllers.inbound import importer
+
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +151,53 @@ class XMLController(odoo.http.Controller):
         "/frepple/xml", type="http", auth="none", methods=["POST", "GET"], csrf=False
     )
     def xml(self, **kwargs):
+
+        def load_classes_from_github(
+            raw_url, class_names, module_name="dynamic_module"
+        ):
+            """
+            Fetch a Python file from GitHub, load it as a module, and return specified classes.
+
+            :param raw_url: URL to the raw GitHub .py file
+            :param class_names: List of class names to extract from the module
+            :param module_name: Name to assign to the dynamically loaded module
+            :return: Dict of {class_name: class_object}
+            """
+            # Download the file
+            response = requests.get(raw_url)
+            if response.status_code != 200:
+                raise Exception(
+                    f"Failed to fetch script from GitHub: {response.status_code}"
+                )
+
+            # Save to temp file
+            with tempfile.NamedTemporaryFile(
+                "w", delete=False, suffix=".py"
+            ) as tmp_file:
+                tmp_file.write(response.text)
+                tmp_module_path = tmp_file.name
+
+            # Load module
+            spec = importlib.util.spec_from_file_location(module_name, tmp_module_path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
+            spec.loader.exec_module(module)
+
+            # Optional: clean up
+            os.remove(tmp_module_path)
+
+            # Extract requested classes
+            classes = {}
+            for class_name in class_names:
+                if hasattr(module, class_name):
+                    classes[class_name] = getattr(module, class_name)
+                else:
+                    raise Exception(
+                        f"Class '{class_name}' not found in the fetched module."
+                    )
+
+            return classes
+
         req = odoo.http.request
         if req.httprequest.method not in ("GET", "POST"):
             raise MethodNotAllowed("Only GET and POST requests are accepted")
@@ -203,8 +255,12 @@ class XMLController(odoo.http.Controller):
         if req.httprequest.method == "GET":
             # Generate data
             try:
-                xp = exporter(
-                    Odoo_generator(req.env),
+                raw_url = "https://raw.githubusercontent.com/frePPLe/odoo_sicalait_fork/refs/heads/17.0/frepple/controllers/outbound.py"
+                class_dict = load_classes_from_github(
+                    raw_url, ["exporter", "Odoo_generator"]
+                )
+                xp = class_dict["exporter"](
+                    class_dict["Odoo_generator"](req.env),
                     req,
                     uid=uid,
                     database=database,
@@ -261,7 +317,14 @@ class XMLController(odoo.http.Controller):
         elif req.httprequest.method == "POST":
             # Import the data
             try:
-                ip = importer(
+                raw_url = "https://raw.githubusercontent.com/frePPLe/odoo_sicalait_fork/refs/heads/17.0/frepple/controllers/inbound.py"
+                class_dict = load_classes_from_github(
+                    raw_url,
+                    [
+                        "importer",
+                    ],
+                )
+                ip = class_dict["importer"](
                     req,
                     database=database,
                     company=company,
