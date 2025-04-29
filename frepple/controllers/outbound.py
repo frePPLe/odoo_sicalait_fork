@@ -1302,7 +1302,7 @@ class exporter(object):
                 )
 
             # x_studio_cycle_de_vie is a selection
-            if tmpl("x_studio_cycle_de_vie"):
+            if tmpl["x_studio_cycle_de_vie"]:
                 yield '<stringproperty name="cycle_de_vie" value=%s/>' % (
                     quoteattr(tmpl["x_studio_cycle_de_vie"]),
                 )
