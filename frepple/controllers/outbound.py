@@ -27,7 +27,7 @@ import logging
 import pytz
 import xmlrpc.client
 from xml.sax.saxutils import quoteattr
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from pytz import timezone
 import ssl
 
@@ -302,6 +302,8 @@ class exporter(object):
         if self.mode == 1:
             logger.debug("Exporting purchase orders.")
             yield from self.export_purchaseorders()
+            logger.debug("Exporting distribution orders.")
+            yield from self.export_distributionorders()
             logger.debug("Exporting manufacturing orders.")
             yield from self.export_manufacturingorders()
 
@@ -1179,6 +1181,28 @@ class exporter(object):
             else:
                 itemsuppliers[i["product_tmpl_id"][0]] = [i]
 
+        # We are hardcoding the routes for the suppliers
+        # Down the road, a supplier will have its prefered route
+        # first for every route, get the total delay
+
+        route_delay = {}
+        for i in self.generator.getData(
+            "stock.route",
+            fields=[
+                "name",
+                "total_delay",
+            ],
+        ):
+            route_delay[i["name"]] = i["total_delay"] or 0
+
+        supplier_leadtime = {}
+        supplier_leadtime[11471] = route_delay.get("ASIE", 0)
+        supplier_leadtime[7482] = route_delay.get("ASIE", 0)
+        supplier_leadtime[12053] = route_delay.get("ASIE", 0)
+        supplier_leadtime[10638] = route_delay.get("ASIE", 0)
+        supplier_leadtime[11591] = route_delay.get("ASIE", 0)
+        supplier_leadtime[10465] = route_delay.get("EUROPE NORD", 0)
+
         # Read the products
         first = True
         for i in self.generator.getData(
@@ -1286,11 +1310,27 @@ class exporter(object):
             # Export suppliers for the item, if the item is allowed to be purchased
             if tmpl["purchase_ok"]:
                 suppliers = {}
+                # visited is to make sure we only build one item distribution per supplier/product
+                visited = []
                 for sup in itemsuppliers.get(tmpl["id"], []):
                     name = self.map_customers.get(sup["partner_id"][0], None)
                     if not name:
                         # Skip uninterested suppliers (eg archived ones)
                         continue
+
+                    if name not in visited:
+
+                        visited.append(name)
+                        yield "<itemdistributions>\n"
+                        yield '<itemdistribution leadtime="P%dD" priority="1" batchwindow="P%dD" size_minimum="%f"><location name="SLS"/><origin name="Appro"/></itemdistribution>\n' % (
+                            supplier_leadtime.get(
+                                sup["partner_id"][0], route_delay.get("EUROPE SUD", 0)
+                            ),
+                            sup["batching_window"] or 0,
+                            sup["min_qty"],
+                        )
+                        yield "</itemdistributions>\n"
+
                     if sup.get("is_subcontractor", False):
                         if not hasattr(tmpl, "subcontractors"):
                             tmpl["subcontractors"] = []
@@ -2206,6 +2246,51 @@ class exporter(object):
             )
         yield "</demands>\n"
 
+    def export_distributionorders(self):
+        """
+        read the import lines where the status is Validated or in Transit
+        """
+
+        yield "<!-- open distribution orders -->\n"
+        yield "<operationplans>\n"
+
+        for i in self.generator.getData(
+            "sic_import.import_order_line",
+            search=[
+                ("logistic_status", "in", ["Validated", "In Transit"]),
+            ],
+            object=True,
+        ):
+            end = i.estimated_arrival
+            # convert end from date to datetime
+            end = datetime.combine(end, datetime.min.time())
+            end = self.formatDateTime(end)
+
+            try:
+                delay = i.import_folder.route.total_delay
+                start = end - timedelta(days=delay)
+                start = self.formatDateTime(start)
+            except:
+                start = self.formatDateTime(
+                    datetime.combine(date.today(), datetime.min.time())
+                )
+
+            item = self.product_product.get(i.product_id.id, None)
+            if not item:
+                continue
+            reference = f"{i.container_assignment_id.name} {i.id}"
+            yield '<operationplan reference=%s ordertype="DO" start="%s" end="%s" quantity="%f" status="confirmed">' "<item name=%s/><origin name=%s/><destination name=%s/></operationplan>\n" % (
+                quoteattr(reference),
+                start,
+                end,
+                i.product_qty,
+                quoteattr(item["name"]),
+                quoteattr("Appro"),
+                quoteattr("SLS"),
+            )
+
+        yield "</operationplans>\n"
+
     def export_purchaseorders(self):
         """
         Send all open purchase orders to frePPLe, using the purchase.order and
@@ -2236,7 +2321,15 @@ class exporter(object):
                         "not in",
                         # Comment out on of the following alternative approaches:
                         # Alternative I: don't send RFQs to frepple because that supply isn't certain to be available yet.
-                        ("draft", "sent", "bid", "to approve", "confirmed", "cancel"),
+                        (
+                            "draft",
+                            "sent",
+                            "bid",
+                            "to approve",
+                            "confirmed",
+                            "cancel",
+                            "done",
+                        ),
                         # Alternative II: send RFQs to frepple to avoid that the same purchasing proposal is generated again by frepple.
                         # ("bid", "confirmed", "cancel"),
                     ),
@@ -2348,7 +2441,7 @@ class exporter(object):
                 j = i.order_id
                 if not item:
                     continue
-                location = self.mfg_location
+                location = "Appro" if i.order_id.is_an_import_order else "SLS"
                 if location and item and i.product_qty > i.qty_received:
                     start = j.date_order
                     if not isinstance(start, datetime):
@@ -2386,23 +2479,8 @@ class exporter(object):
                     if not supplier:
                         continue
 
-                    # MTO links
-                    if (
-                        self.route_mto
-                        in self.product_templates[item["template"]]["route_ids"]
-                    ):
-                        mto_so = i.move_dest_ids.group_id.sale_id
-                        batch = mto_so[0].name if mto_so else None
-                        if not batch:
-                            mto_mo = j._get_mrp_productions()
-                            if mto_mo:
-                                batch = mto_mo[0].display_name
-                    else:
-                        batch = None
-
-                    yield '<operationplan reference=%s %sordertype="PO" start="%s" end="%s" quantity="%f" status="confirmed">' "<item name=%s/><location name=%s/><supplier name=%s/></operationplan>\n" % (
+                    yield '<operationplan reference=%s ordertype="PO" start="%s" end="%s" quantity="%f" status="confirmed">' "<item name=%s/><location name=%s/><supplier name=%s/></operationplan>\n" % (
                         quoteattr("%s - %s" % (j.name, i.id)),
-                        "batch=%s " % quoteattr(batch) if batch else "",
                         start,
                         end,
                         qty,
