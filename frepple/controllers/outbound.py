@@ -1384,7 +1384,7 @@ class exporter(object):
                 if suppliers:
                     yield "<itemsuppliers>\n"
                     for k, v in suppliers.items():
-                        yield '<itemsupplier leadtime="P%dD" priority="%s" batchwindow="P%dD" size_minimum="%f" cost="%f"%s%s><supplier name=%s/></itemsupplier>\n' % (
+                        yield '<itemsupplier leadtime="P%dD" priority="%s" batchwindow="P%dD" size_minimum="%f" cost="%f"%s%s><supplier name=%s/><location name="Appro"></itemsupplier>\n' % (
                             v["delay"],
                             v["sequence"] or 1,
                             v["batching_window"] or 0,
