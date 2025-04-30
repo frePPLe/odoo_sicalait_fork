@@ -818,7 +818,7 @@ class exporter(object):
                 i["id"],
             )
             self.warehouses[i["id"]] = i["name"]
-            self.map_locations[loc_object["id"]] = i["name"]
+            self.map_locations[i["id"]] = i["name"]
 
         if not first:
             yield "</locations>\n"
