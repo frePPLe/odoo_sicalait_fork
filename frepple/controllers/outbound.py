@@ -1201,12 +1201,12 @@ class exporter(object):
             route_delay[i["name"]] = i["total_delay"] or 0
 
         supplier_leadtime = {}
-        supplier_leadtime[11471] = route_delay.get("ASIE", 0)
-        supplier_leadtime[7482] = route_delay.get("ASIE", 0)
-        supplier_leadtime[12053] = route_delay.get("ASIE", 0)
-        supplier_leadtime[10638] = route_delay.get("ASIE", 0)
-        supplier_leadtime[11591] = route_delay.get("ASIE", 0)
-        supplier_leadtime[10465] = route_delay.get("EUROPE NORD", 0)
+        supplier_leadtime[11471] = route_delay.get("SLS - ASIE", 0)
+        supplier_leadtime[7482] = route_delay.get("SLS - ASIE", 0)
+        supplier_leadtime[12053] = route_delay.get("SLS - ASIE", 0)
+        supplier_leadtime[10638] = route_delay.get("SLS - ASIE", 0)
+        supplier_leadtime[11591] = route_delay.get("SLS - ASIE", 0)
+        supplier_leadtime[10465] = route_delay.get("SLS - EUROPE NORD", 0)
 
         # Read the products
         first = True
@@ -1329,7 +1329,8 @@ class exporter(object):
                         yield "<itemdistributions>\n"
                         yield '<itemdistribution leadtime="P%dD" priority="1" batchwindow="P%dD" size_minimum="%f"><destination name="SLS"/><origin name="Appro"/></itemdistribution>\n' % (
                             supplier_leadtime.get(
-                                sup["partner_id"][0], route_delay.get("EUROPE SUD", 0)
+                                sup["partner_id"][0],
+                                route_delay.get("SLS- EUROPE SUD", 0),
                             ),
                             sup["batching_window"] or 0,
                             sup["min_qty"],
