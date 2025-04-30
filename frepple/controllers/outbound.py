@@ -1322,7 +1322,7 @@ class exporter(object):
 
                         visited.append(name)
                         yield "<itemdistributions>\n"
-                        yield '<itemdistribution leadtime="P%dD" priority="1" batchwindow="P%dD" size_minimum="%f"><location name="SLS"/><origin name="Appro"/></itemdistribution>\n' % (
+                        yield '<itemdistribution leadtime="P%dD" priority="1" batchwindow="P%dD" size_minimum="%f"><destination name="SLS"/><origin name="Appro"/></itemdistribution>\n' % (
                             supplier_leadtime.get(
                                 sup["partner_id"][0], route_delay.get("EUROPE SUD", 0)
                             ),
@@ -2279,7 +2279,7 @@ class exporter(object):
             if not item:
                 continue
             reference = f"{i.container_assignment_id.name} {i.id}"
-            yield '<operationplan reference=%s ordertype="DO" start="%s" end="%s" quantity="%f" status="confirmed">' "<item name=%s/><origin name=%s/><destination name=%s/></operationplan>\n" % (
+            yield '<operationplan reference=%s ordertype="DO" start="%s" end="%s" quantity="%f" status="confirmed">' "<item name=%s/><origin name=%s/><location name=%s/></operationplan>\n" % (
                 quoteattr(reference),
                 start,
                 end,
