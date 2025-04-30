@@ -806,6 +806,20 @@ class exporter(object):
                 ),
             )
             self.warehouses[i["id"]] = i["code"] or i["name"]
+
+        # We need to create a dummy warehouse for the "transitaire"
+        for i in self.generator.getData(
+            "stock.location",
+            [("name", "=", "Appro")],
+            fields=["name"],
+        ):
+            yield '<location name=%s subcategory="%s"></location>\n' % (
+                quoteattr(i["name"]),
+                i["id"],
+            )
+            self.warehouses[i["id"]] = i["name"]
+            self.map_locations[loc_object["id"]] = i["name"]
+
         if not first:
             yield "</locations>\n"
         if self.mfg_location and self.mfg_location in self.warehouses:
@@ -826,16 +840,7 @@ class exporter(object):
             ids=loc_ids,
             fields=["warehouse_id", "name"],
         ):
-            if loc_object["name"] == "Appro":
-                # We need to create a dummy warehouse for the "transitaire"
-                yield '<location name=%s subcategory="%s"></location>\n' % (
-                    quoteattr(i["name"]),
-                    i["id"],
-                )
-                self.warehouses[i["id"]] = i["name"]
-                self.map_locations[loc_object["id"]] = i["name"]
-
-            elif (
+            if (
                 loc_object.get("warehouse_id", False)
                 and loc_object["warehouse_id"][0] in self.warehouses
             ):
