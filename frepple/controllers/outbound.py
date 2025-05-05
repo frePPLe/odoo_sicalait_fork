@@ -3027,7 +3027,7 @@ class exporter(object):
                 SELECT product_id,
                 stock_quant.location_id,
                 sum(quantity),
-                case when stock_location.name='TC1' then 0 else sum(stock_quant.reserved_quantity) end as reserved_quantity,
+                case when stock_location.name='TC1' then 0 else sum(stock_quant.reserved_quantity) end as reserved_quantity
                 FROM stock_quant
                 INNER JOIN stock_location ON stock_quant.location_id = stock_location.id
                 WHERE quantity > 0
