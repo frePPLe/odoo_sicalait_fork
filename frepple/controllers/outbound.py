@@ -813,12 +813,13 @@ class exporter(object):
             [("name", "=", "Appro")],
             fields=["name"],
         ):
+            name = "transitaire"
             yield '<location name=%s subcategory="%s"></location>\n' % (
-                quoteattr(i["name"]),
+                quoteattr(name),
                 i["id"],
             )
-            self.warehouses[i["id"]] = i["name"]
-            self.map_locations[i["id"]] = i["name"]
+            self.warehouses[i["id"]] = name
+            self.map_locations[i["id"]] = name
 
         if not first:
             yield "</locations>\n"
@@ -1327,13 +1328,11 @@ class exporter(object):
 
                         visited.append(name)
                         yield "<itemdistributions>\n"
-                        yield '<itemdistribution leadtime="P%dD" priority="1" batchwindow="P%dD" size_minimum="%f"><destination name="SLS"/><origin name="Appro"/></itemdistribution>\n' % (
+                        yield '<itemdistribution leadtime="P%dD" priority="1"><destination name="SLS"/><origin name="transitaire"/></itemdistribution>\n' % (
                             supplier_leadtime.get(
                                 sup["partner_id"][0],
                                 route_delay.get("SLS- EUROPE SUD", 0),
                             ),
-                            sup["batching_window"] or 0,
-                            sup["min_qty"],
                         )
                         yield "</itemdistributions>\n"
 
@@ -1390,7 +1389,7 @@ class exporter(object):
                 if suppliers:
                     yield "<itemsuppliers>\n"
                     for k, v in suppliers.items():
-                        yield '<itemsupplier leadtime="P%dD" priority="%s" batchwindow="P%dD" size_minimum="%f" cost="%f"%s%s><supplier name=%s/><location name="Appro"/></itemsupplier>\n' % (
+                        yield '<itemsupplier leadtime="P%dD" priority="%s" batchwindow="P%dD" size_minimum="%f" cost="%f"%s%s><supplier name=%s/><location name="transitaire"/></itemsupplier>\n' % (
                             v["delay"],
                             v["sequence"] or 1,
                             v["batching_window"] or 0,
@@ -2263,11 +2262,11 @@ class exporter(object):
         for i in self.generator.getData(
             "sic_import.import_order_line",
             search=[
-                ("logistic_status", "in", ["Validated", "In Transit"]),
+                ("logistic_status", "in", ["Validated", "In Transit", "BAE"]),
             ],
             object=True,
         ):
-            end = i.estimated_arrival
+            end = i.import_folder_id.actual_estimated_arrival or i.estimated_arrival
             # convert end from date to datetime
             end = datetime.combine(end, datetime.min.time())
             end = self.formatDateTime(end)
@@ -2284,14 +2283,14 @@ class exporter(object):
             item = self.product_product.get(i.product_id.id, None)
             if not item:
                 continue
-            reference = f"{i.container_assignment_id.name} {i.id}"
+            reference = f"{i.import_folder_id.reference} {i.id}"
             yield '<operationplan reference=%s ordertype="DO" start="%s" end="%s" quantity="%f" status="confirmed">' "<item name=%s/><origin name=%s/><location name=%s/></operationplan>\n" % (
                 quoteattr(reference),
                 start,
                 end,
                 i.product_qty,
                 quoteattr(item["name"]),
-                quoteattr("Appro"),
+                quoteattr("transitaire"),
                 quoteattr("SLS"),
             )
 
@@ -2447,7 +2446,7 @@ class exporter(object):
                 j = i.order_id
                 if not item:
                     continue
-                location = "Appro" if i.order_id.is_an_import_order else "SLS"
+                location = "transitaire" if i.order_id.is_an_import_order else "SLS"
                 if location and item and i.product_qty > i.qty_received:
                     start = j.date_order
                     if not isinstance(start, datetime):
