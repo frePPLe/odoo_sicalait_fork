@@ -2922,22 +2922,27 @@ class exporter(object):
         yield "<operationplans>\n"
         if isinstance(self.generator, Odoo_generator):
             # SQL query gives much better performance
+            # TC1 reservations are ignored because this is the "parking" where containers are opened and things put in stock
+            # all stock is reserved by the next operation that will transfer the stock to the main stock location, thus we need
+            # ignore the reservations otherwise the stock is invisible to frepple
             self.generator.env.cr.execute(
                 """
                 SELECT stock_quant.product_id,
                 stock_quant.location_id,
                 sum(stock_quant.quantity) as quantity,
-                sum(stock_quant.reserved_quantity) as reserved_quantity,
+                case when stock_location.name='TC1' then 0 else sum(stock_quant.reserved_quantity) end as reserved_quantity,
                 stock_lot.name as lot_name,
                 stock_lot.expiration_date
                 FROM stock_quant
+                inner join stock_location on stock_location.id = stock_quant.location_id
                 left outer join stock_lot on stock_quant.lot_id = stock_lot.id
                 and stock_lot.product_id = stock_quant.product_id
                 WHERE quantity > 0
                 GROUP BY stock_quant.product_id,
                 stock_quant.location_id,
                 stock_lot.name,
-                stock_lot.expiration_date
+                stock_lot.expiration_date,
+                stock_location.name
                 ORDER BY location_id ASC
                 """
             )
