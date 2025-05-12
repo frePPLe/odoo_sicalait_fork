@@ -1159,6 +1159,7 @@ class exporter(object):
             "partner_id",
             "delay",
             "min_qty",
+            "multiple",
             "date_end",
             "date_start",
             "price",
@@ -1369,6 +1370,10 @@ class exporter(object):
                             not r["min_qty"] or sup["min_qty"] < r["min_qty"]
                         ):
                             r["min_qty"] = sup["min_qty"]
+                        if sup["multiple"] and (
+                            not r["multiple"] or sup["multiple"] < r["multiple"]
+                        ):
+                            r["multiple"] = sup["multiple"]
                         if sup["price"] and (
                             not r["price"] or sup["price"] < r["price"]
                         ):
@@ -1383,17 +1388,19 @@ class exporter(object):
                             "sequence": sup["sequence"] or 1,
                             "batching_window": sup["batching_window"] or 0,
                             "min_qty": sup["min_qty"],
+                            "multiple": sup["multiple"],
                             "price": max(0, sup["price"]),
                             "date_end": sup["date_end"],
                         }
                 if suppliers:
                     yield "<itemsuppliers>\n"
                     for k, v in suppliers.items():
-                        yield '<itemsupplier leadtime="P%dD" priority="%s" batchwindow="P%dD" size_minimum="%f" cost="%f"%s%s><supplier name=%s/><location name="transitaire"/></itemsupplier>\n' % (
+                        yield '<itemsupplier leadtime="P%dD" priority="%s" batchwindow="P%dD" size_minimum="%f" size_multiple="%f" cost="%f"%s%s><supplier name=%s/><location name="transitaire"/></itemsupplier>\n' % (
                             v["delay"],
                             v["sequence"] or 1,
                             v["batching_window"] or 0,
                             v["min_qty"],
+                            v["multiple"],
                             max(0, v["price"]),
                             (
                                 ' effective_end="%sT00:00:00"'
