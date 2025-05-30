@@ -2327,6 +2327,14 @@ class exporter(object):
             for i in self.generator.getData(
                 "purchase.order.line",
                 search=[
+                    "&",
+                    (
+                        "order_id.partner_id.category_id.name",
+                        "in",
+                        [
+                            "FOURNISSEUR",
+                        ],
+                    ),
                     "|",
                     (
                         "order_id.state",
