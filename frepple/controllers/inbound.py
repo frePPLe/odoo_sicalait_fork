@@ -332,26 +332,27 @@ class importer(object):
                                 "partner_id": supplier_id,
                                 "origin": remark,
                             }
+                            # hardcoded as long as the supplier is not linked to the route.
                             try:
+                                if supplier_id in [
+                                    11471,
+                                    7482,
+                                    12053,
+                                    10638,
+                                    11591,
+                                    10465,
+                                ]:
+                                    name = "SLS - ASIE"
+                                elif supplier_id == 10465:
+                                    name = "SLS - EUROPE NORD"
+                                else:
+                                    name = "SLS - EUROPE SUD"
                                 picking_type_id = stck_picking_type.search(
                                     [
-                                        ("code", "=", "incoming"),
-                                        (
-                                            "warehouse_id",
-                                            "=",
-                                            int(elem.get("location_id")),
-                                        ),
+                                        ("name", "=", name),
                                     ],
                                     limit=1,
                                 )[:1]
-                                if not picking_type_id:
-                                    picking_type_id = stck_picking_type.search(
-                                        [
-                                            ("code", "=", "incoming"),
-                                            ("warehouse_id", "=", False),
-                                        ],
-                                        limit=1,
-                                    )[:1]
                                 if picking_type_id:
                                     po_args["picking_type_id"] = picking_type_id.id
                             except Exception:
