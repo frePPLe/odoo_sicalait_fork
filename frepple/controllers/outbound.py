@@ -1137,13 +1137,13 @@ class exporter(object):
             (
             select coalesce(product_product.default_code,
             product_template.name->>%s,
-            product_template.name->>'en_US'), count(*)
+            product_template.name->>'fr_FR'), count(*)
             from product_product
             inner join product_template on product_product.product_tmpl_id = product_template.id
             where product_template.type not in ('service', 'consu')
             group by coalesce(product_product.default_code,
             product_template.name->>%s,
-            product_template.name->>'en_US')
+            product_template.name->>'fr_FR')
             having count(*) > 1
             ) t
                 """,
