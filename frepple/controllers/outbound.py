@@ -2339,17 +2339,17 @@ class exporter(object):
                         "not in",
                         # Comment out on of the following alternative approaches:
                         # Alternative I: don't send RFQs to frepple because that supply isn't certain to be available yet.
-                        (
-                            "draft",
-                            "sent",
-                            "bid",
-                            "to approve",
-                            "confirmed",
-                            "cancel",
-                            "done",
-                        ),
+                        # (
+                        #     "draft",
+                        #     "sent",
+                        #     "bid",
+                        #     "to approve",
+                        #     "confirmed",
+                        #     "cancel",
+                        #     "done",
+                        # ),
                         # Alternative II: send RFQs to frepple to avoid that the same purchasing proposal is generated again by frepple.
-                        # ("bid", "confirmed", "cancel"),
+                        ("bid", "confirmed", "cancel", "done"),
                     ),
                     ("order_id.state", "=", False),
                     "|",
@@ -2441,7 +2441,7 @@ class exporter(object):
                     if not supplier:
                         continue
                     if qty >= 0:
-                        yield '<operationplan reference=%s %sordertype="PO" start="%s" end="%s" quantity="%f" status="confirmed">' "<item name=%s/><location name=%s/><supplier name=%s/></operationplan>\n" % (
+                        yield '<operationplan reference=%s %sordertype="PO" start="%s" end="%s" quantity="%f" status="confirmed">' '<item name=%s/><location name=%s/><supplier name=%s/><stringproperty name="odoo_state" value=%s/></operationplan>\n' % (
                             quoteattr(po_line_reference),
                             "batch=%s " % quoteattr(batch) if batch else "",
                             start,
@@ -2450,6 +2450,7 @@ class exporter(object):
                             quoteattr(item["name"]),
                             quoteattr(location),
                             quoteattr(supplier),
+                            quoteattr(i.order_id.state),
                         )
             else:
                 # METHOD 2: Create purchasing operations from purchase order lines
@@ -2497,7 +2498,7 @@ class exporter(object):
                     if not supplier:
                         continue
 
-                    yield '<operationplan reference=%s ordertype="PO" start="%s" end="%s" quantity="%f" status="confirmed">' "<item name=%s/><location name=%s/><supplier name=%s/></operationplan>\n" % (
+                    yield '<operationplan reference=%s ordertype="PO" start="%s" end="%s" quantity="%f" status="confirmed">' '<item name=%s/><location name=%s/><supplier name=%s/><stringproperty name="odoo_state" value=%s/></operationplan>\n' % (
                         quoteattr("%s - %s" % (j.name, i.id)),
                         start,
                         end,
@@ -2505,6 +2506,7 @@ class exporter(object):
                         quoteattr(item["name"]),
                         quoteattr(location),
                         quoteattr(supplier),
+                        quoteattr(i.order_id.state),
                     )
         yield "</operationplans>\n"
 
